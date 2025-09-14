@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kc-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keycloak-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.5
+    container_name: keycloak
+    command: start --http-port=8080 --hostname-strict=false --import-realm
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      - KC_DB_USERNAME=${POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - KC_PROXY=edge
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realms:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - keycloak-net
+
+volumes:
+  keycloak_data:
+  postgres_data:
+
+networks:
+  keycloak-net:
+
+
